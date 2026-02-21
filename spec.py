@@ -10,7 +10,9 @@ a = Analysis(
     [script_name],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('gata.png', '.'),  # Copia a imagem da logo para a raiz do executável
+    ],
     hiddenimports=[
         'flet',
         'sqlite3',
@@ -20,6 +22,8 @@ a = Analysis(
         'pandas',
         'relatorio',
         'database',
+        'qrcode',  # Adicionado para evitar erro de importação
+        'PIL',     # Necessário para o qrcode gerar imagens
         # Adicione outras dependências se necessário
     ],
     hookspath=[],

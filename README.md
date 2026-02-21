@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Graça Presentes 🎁
 
 Sistema de Ponto de Venda (PDV) e Gestão de Estoque desenvolvido em Python utilizando o framework Flet. O sistema foi projetado para gerenciar vendas, controlar estoque e fornecer relatórios visuais para uma loja de presentes.
@@ -100,7 +99,9 @@ O projeto já inclui um arquivo de especificação (`spec.py`) para o PyInstalle
 - `spec.py`: Configuração de build para o PyInstaller.
 
 =======
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+
 ## 🛍️ GRAÇA PRESENTES - Sistema de Vendas e Estoque
 
 **🚀 _Sistema integrado com back-end e frontend mobile (Flet)_**
@@ -112,11 +113,10 @@ O projeto já inclui um arquivo de especificação (`spec.py`) para o PyInstalle
    <img src="https://img.shields.io/badge/Desktop-APP-4ECDC4?style=for-the-badge">
    <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white">
 
-<<<<<<< HEAD
-=======
+# <<<<<<< HEAD
 
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 </p>
 
 🌟 SOBRE O PROJETO
@@ -125,7 +125,7 @@ O GRAÇA PRESENTES é um sistema desktop desenvolvido em Python com interface es
 ### 🎯 CARACTERÍSTICAS PRINCIPAIS
 
 <<<<<<< HEAD
-    🖥️ APLICATIVO DESKTOP
+🖥️ APLICATIVO DESKTOP
 
     💰 SISTEMA COMPLETO DE VENDAS
 
@@ -136,22 +136,25 @@ O GRAÇA PRESENTES é um sistema desktop desenvolvido em Python com interface es
     🏷️ CADASTRO DE PRODUTOS COM IMAGENS
 
 =======
-    🖥️ APLICATIVO DESKTOP 
-      
+🖥️ APLICATIVO DESKTOP
+
     💰 SISTEMA COMPLETO DE VENDAS
-      
+
     📊 CONTROLE DE ESTOQUE EM TEMPO REAL
-      
+
     📈 DASHBOARD COM ANALYTICS
-      
+
     🏷️ CADASTRO DE PRODUTOS COM IMAGENS
-      
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+
+
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+
     📋 RELATÓRIOS DETALHADOS
 
 ### 🛠️ TECNOLOGIAS UTILIZADAS
 
      Python	Linguagem principal
+
 <<<<<<< HEAD
 
      Flet Framework para interface
@@ -159,14 +162,16 @@ O GRAÇA PRESENTES é um sistema desktop desenvolvido em Python com interface es
      Pandas	Análise e processamento de dados
 
      PyInstaller Empacotamento para desktop
+
 =======
-      
+
      Flet Framework para interface
-      
+
      Pandas	Análise e processamento de dados
-      
-     PyInstaller Empacotamento para desktop 
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+
+     PyInstaller Empacotamento para desktop
+
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
 ### 🎯TELAS DO SISTEMA
 
@@ -181,18 +186,19 @@ Finalização de compra com atualização automática do estoque
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20003842.png)
 
-📝 CADASTRO DE PRODUTOS
-=======
- 🛒 Sistema de Vendas
-Carrinho de Compras com seleção de produtos,  Cálculo automático de valores e totais,  Sistema de troco para pagamento em dinheiro,
+# 📝 CADASTRO DE PRODUTOS
+
+🛒 Sistema de Vendas
+Carrinho de Compras com seleção de produtos, Cálculo automático de valores e totais, Sistema de troco para pagamento em dinheiro,
 Finalização de compra com atualização automática do estoque
 
- 💰 FINALIZAÇÃO DE VENDA
+💰 FINALIZAÇÃO DE VENDA
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20003842.png)
 
- 📝 CADASTRO DE PRODUTOS
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+📝 CADASTRO DE PRODUTOS
+
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20004036.png)
 
@@ -212,32 +218,32 @@ Exibição de imagens dos produtos, Listagem de produtos cadastrados
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20004504.png)
 
+# 📈 RELATÓRIOS
+
 📈 RELATÓRIOS
-=======
- 📈 RELATÓRIOS 
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20004215.png)
 
- 📊 RELATÓRIOS 
+📊 RELATÓRIOS
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20004301.png)
 
-
- 📈 RELATÓRIOS POR DATA
+📈 RELATÓRIOS POR DATA
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20004504.png)
 
- 📈 RELATÓRIOS 
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+📈 RELATÓRIOS
+
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
 ![Tela do App](assets/Captura%20de%20tela%202025-10-19%20004602.png)
 
 <p align="center">
 <<<<<<< HEAD
 =======
- 
 
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img src="https://img.shields.io/badge/Flet-0178FF?style=for-the-badge&logo=flet&logoColor=white">
@@ -246,6 +252,17 @@ Exibição de imagens dos produtos, Listagem de produtos cadastrados
 </p>
 
 <<<<<<< HEAD
+
+### 💾Funcionalidades Técnicas
+
+_Banco de Dados_
+
+- Armazenamento em arquivos CSV
+- Sincronização em tempo real
+- Backup automático de dados
+
+  # _Interface_
+
 ### 💾Funcionalidades Técnicas
 
 _Banco de Dados_
@@ -255,41 +272,24 @@ _Banco de Dados_
 - Backup automático de dados
 
   _Interface_
-=======
- ### 💾Funcionalidades Técnicas
 
-  *Banco de Dados*
- 
-- Armazenamento em arquivos CSV
-- Sincronização em tempo real
-- Backup automático de dados
-  
- *Interface*
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+  > > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
 - Design responsivo para mobile
 - Navegação intuitiva entre telas
 - Feedback visual imediato
 
 <<<<<<< HEAD
-  _Business Logic_
+_Business Logic_
 =======
- *Business Logic*
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+_Business Logic_
+
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
 - Atualização automática do estoque
 - Cálculo preciso de valores e trocos
 - Validação de dados de entrada
-<<<<<<< HEAD
-=======
+  <<<<<<< HEAD
+  =======
 
- 
-
-
-
-
-
-
-
-
->>>>>>> 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
+> > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8

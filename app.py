@@ -4,7 +4,11 @@ import platform
 from datetime import datetime
 import asyncio
 import traceback
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None # Fallback caso pandas falhe no exe, embora esteja no spec
+
 from datetime import date
 from relatorio import *
 from database import *
@@ -75,7 +79,7 @@ def confirmar_acao(page, mensagem, callback):
 
 def main(page: ft.Page):
     # Configuração inicial da página
-    page.title = "Graça Presentes "
+    page.title = "Graça Presentes (v1.1)"
 
     page.window.maximized = True
     page.padding = 0
