@@ -1,4 +1,3 @@
-import os
 from PyInstaller.building.build_main import Analysis, EXE
 from PyInstaller.building.datastruct import TOC
 from PyInstaller.building.osx import BUNDLE

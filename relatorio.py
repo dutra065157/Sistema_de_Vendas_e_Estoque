@@ -101,6 +101,20 @@ def obter_dados_estoque():
     return dados
 
 
+def obter_detalhes_cartao():
+    """Obtém relatório detalhado de vendas no cartão"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT v.id, v.data_venda, v.total, d.nome_cliente, d.tipo_cartao, d.parcelas
+        FROM vendas v
+        JOIN dados_cartao d ON v.id = d.venda_id
+        ORDER BY v.data_venda DESC
+    """)
+    dados = cursor.fetchall()
+    conn.close()
+    return dados
+
 # ----------------- COMPONENTES -----------------
 PRIMARY_COLOR = ft.Colors.BLUE_600
 SECONDARY_COLOR = ft.Colors.BLUE_50
@@ -113,17 +127,17 @@ class DashboardGraficos:
         self.page = page
         self.cards = self.criar_cards_resumo()
         self.grafico_pizza = self.criar_grafico_pizza()
-        self.grafico_linha = self.criar_grafico_linha()
         self.grafico_linha_pagamento = self.criar_grafico_linha_pagamento()
         self.grafico_barras = self.criar_grafico_barras()
+        self.tabela_cartoes = self.criar_tabela_cartoes()
 
     def atualizar_tudo(self):
         """Atualiza todos os componentes do dashboard"""
         self.cards = self.criar_cards_resumo()
         self.grafico_pizza = self.criar_grafico_pizza()
-        self.grafico_linha = self.criar_grafico_linha()
         self.grafico_linha_pagamento = self.criar_grafico_linha_pagamento()
         self.grafico_barras = self.criar_grafico_barras()
+        self.tabela_cartoes = self.criar_tabela_cartoes()
         self.page.update()
 
     def criar_cards_resumo(self):
@@ -168,45 +182,6 @@ class DashboardGraficos:
                     sections_space=2,
                     center_space_radius=40,
                     expand=True
-                )
-            ], spacing=10),
-            padding=10,
-            border_radius=15,
-            bgcolor=SECONDARY_COLOR,
-            expand=True
-        )
-
-    def criar_grafico_linha(self):
-        dados = obter_evolucao_vendas()
-        if not dados:
-            return ft.Text("Nenhuma venda registrada")
-
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("📈 Evolução das Vendas", size=20,
-                        weight="bold", color=TEXT_COLOR),
-                ft.LineChart(
-                    data_series=[
-                        ft.LineChartData(
-                            data_points=[
-                                ft.LineChartDataPoint(i, total)
-                                for i, (_, total) in enumerate(dados)
-                            ],
-                            stroke_width=3,
-                            color=PRIMARY_COLOR,
-                            curved=True
-                        )
-                    ],
-                    bottom_axis=ft.ChartAxis(
-                        labels=[
-                            ft.ChartAxisLabel(
-                                value=i, label=ft.Text(data, size=12))
-                            for i, (data, _) in enumerate(dados)
-                        ]
-                    ),
-                    expand=True,
-                    interactive=True,
-                    max_y=max([t for _, t in dados]) * 1.2 if dados else 100
                 )
             ], spacing=10),
             padding=10,
@@ -604,6 +579,72 @@ class DashboardGraficos:
             )
         )
 
+    def criar_tabela_cartoes(self):
+        """Cria uma tabela detalhada com as vendas de cartão"""
+        dados = obter_detalhes_cartao()
+
+        if not dados:
+            return ft.Container(
+                content=ft.Column([
+                    ft.Icon(ft.Icons.CREDIT_CARD_OFF, size=40, color=ft.Colors.GREY_400),
+                    ft.Text("Nenhuma venda com cartão registrada", color=ft.Colors.GREY_600)
+                ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
+                padding=20,
+                border_radius=15,
+                bgcolor=SECONDARY_COLOR,
+                alignment=ft.alignment.center,
+                height=200,
+                expand=True
+            )
+
+        # Formatação das linhas
+        linhas = []
+        for id_venda, data, total, nome, tipo, parcelas in dados:
+            # Formatar data
+            try:
+                data_obj = datetime.strptime(data, '%Y-%m-%d %H:%M:%S')
+                data_fmt = data_obj.strftime('%d/%m/%Y %H:%M')
+            except:
+                data_fmt = data
+
+            linhas.append(
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(ft.Text(data_fmt)),
+                        ft.DataCell(ft.Text(nome or "Não informado")),
+                        ft.DataCell(ft.Text(tipo.upper(), color=ft.Colors.BLUE_700 if tipo == 'credito' else ft.Colors.GREEN_700, weight="bold")),
+                        ft.DataCell(ft.Text(f"{parcelas}x")),
+                        ft.DataCell(ft.Text(f"R$ {total:.2f}", weight="bold")),
+                    ]
+                )
+            )
+
+        return ft.Container(
+            content=ft.Column([
+                ft.Text("💳 Detalhamento de Vendas no Cartão", 
+                       size=20, weight="bold", color=TEXT_COLOR),
+                ft.Column(
+                    controls=[ft.DataTable(
+                        columns=[
+                            ft.DataColumn(ft.Text("Data/Hora", weight="bold")),
+                            ft.DataColumn(ft.Text("Cliente", weight="bold")),
+                            ft.DataColumn(ft.Text("Tipo", weight="bold")),
+                            ft.DataColumn(ft.Text("Parc.", weight="bold")),
+                            ft.DataColumn(ft.Text("Valor", weight="bold")),
+                        ],
+                        rows=linhas,
+                        heading_row_color=ft.Colors.BLUE_100,
+                    )],
+                    scroll=ft.ScrollMode.AUTO, # Permite rolar se a tabela for grande
+                    expand=True
+                )
+            ], spacing=15),
+            padding=25,
+            border_radius=15,
+            bgcolor=SECONDARY_COLOR,
+            expand=True,
+            height=400
+        )
 
 def criar_tabela_vendas(dados):
     return ft.DataTable(

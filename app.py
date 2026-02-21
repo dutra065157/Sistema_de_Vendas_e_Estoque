@@ -1,5 +1,6 @@
 import flet as ft
-import sqlite3
+import os
+import platform
 from datetime import datetime
 import asyncio
 import traceback
@@ -8,6 +9,11 @@ from datetime import date
 from relatorio import *
 from database import *
 from relatorio import DashboardGraficos  # Importa a nova classe
+import qrcode
+from io import BytesIO
+import base64
+import webbrowser
+import urllib.parse
 
 
 # ==============================================================
@@ -23,6 +29,7 @@ class AppState:
         self.produto_editando = None
         self.uploaded_image_path = None
         self.dashboard = None  # Será inicializado depois
+        self.ultima_venda_id = None
 
 
 def mostrar_mensagem(page, texto, cor=ft.Colors.GREEN):
@@ -71,7 +78,7 @@ def main(page: ft.Page):
     page.title = "Graça Presentes "
 
     page.window.maximized = True
-    page.padding = 20
+    page.padding = 0
     page.theme_mode = ft.ThemeMode.LIGHT
     page.scroll = ft.ScrollMode.AUTO
     page.fonts = {
@@ -267,7 +274,7 @@ def main(page: ft.Page):
             produto = {
                 'codigo': codigo_produto.value.strip(),
                 'nome': nome_produto.value.strip(),
-                'preco': float(preco_produto.value),
+                'preco': float(preco_produto.value.replace(',', '.')),
                 'quantidade': int(quantidade_produto.value),
                 'categoria': categoria_produto.value if categoria_produto.value else "outros",
                 'descricao': descricao_produto.value.strip() if descricao_produto.value else "",
@@ -598,10 +605,113 @@ def main(page: ft.Page):
         border_color=ft.Colors.BLUE_700
     )
 
+    # ==============================================================
+    # MODAL DADOS CARTÃO (NOVO)
+    # ==============================================================
+
+    cartao_nome_cliente = ft.TextField(label="Nome do Cliente", width=400, border_color=ft.Colors.BLUE_700)
+    cartao_parcelas = ft.TextField(label="Parcelas", value="1", width=100, disabled=True, keyboard_type=ft.KeyboardType.NUMBER, border_color=ft.Colors.BLUE_700)
+    cartao_info_venda = ft.Text("", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_800)
+
+    def on_tipo_cartao_change(e):
+        if e.control.value == "debito":
+            cartao_parcelas.value = "1"
+            cartao_parcelas.disabled = True
+        else:
+            cartao_parcelas.disabled = False
+        page.update()
+
+    cartao_tipo = ft.RadioGroup(
+        content=ft.Row([
+            ft.Radio(value="debito", label="Débito"),
+            ft.Radio(value="credito", label="Crédito")
+        ]),
+        value="debito",
+        on_change=on_tipo_cartao_change
+    )
+
+    def fechar_modal_cartao(e=None):
+        modal_dados_cartao.open = False
+        page.update()
+
+    def confirmar_venda_cartao(e):
+        try:
+            if not cartao_nome_cliente.value:
+                cartao_nome_cliente.error_text = "Nome obrigatório"
+                page.update()
+                return
+
+            total = sum(item['subtotal'] for item in state.carrinho)
+            
+            dados_cartao = {
+                'nome_cliente': cartao_nome_cliente.value,
+                'tipo_cartao': cartao_tipo.value,
+                'parcelas': int(cartao_parcelas.value) if cartao_parcelas.value else 1
+            }
+
+            venda = {
+                'data_venda': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'total': total,
+                'forma_pagamento': 'cartao',
+                'valor_recebido': total,
+                'troco': 0
+            }
+
+            venda_id = registrar_venda_db(venda, state.carrinho, dados_cartao)
+            state.ultima_venda_id = venda_id
+            abrir_modal_comprovante()
+            
+            # Limpeza e Sucesso
+            state.carrinho.clear()
+            atualizar_carrinho()
+            modal_dados_cartao.open = False
+            modal_checkout.open = False
+            atualizar_tabela_produtos()
+            state.dashboard.atualizar_tudo()
+
+            success_vendas_text.value = f"✅ Venda Cartão 🛒{venda_id} registrada!"
+            page.update()
+
+            async def clear_success():
+                await asyncio.sleep(5)
+                success_vendas_text.value = ""
+                page.update()
+            page.run_task(clear_success)
+
+        except Exception as ex:
+            mostrar_mensagem(page, f"Erro: {str(ex)}", ft.Colors.RED)
+            traceback.print_exc()
+
+    modal_dados_cartao = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Dados do Cartão", weight="bold", color=ft.Colors.BLUE_800),
+        content=ft.Container(
+            content=ft.Column([
+                cartao_info_venda,
+                ft.Divider(),
+                cartao_nome_cliente,
+                ft.Text("Tipo de Operação:", weight="bold"),
+                cartao_tipo,
+                cartao_parcelas,
+            ], tight=True, spacing=15),
+            width=400,
+            padding=20
+        ),
+        actions=[
+            ft.TextButton("Confirmar", 
+                style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_700, color=ft.Colors.WHITE),
+                on_click=confirmar_venda_cartao),
+            ft.TextButton("Cancelar", 
+                style=ft.ButtonStyle(color=ft.Colors.RED_700),
+                on_click=fechar_modal_cartao)
+        ],
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+    )
+
     def abrir_checkout(e):
         page.add(modal_checkout)
         """Abre o modal de finalização de compra"""
-        if not state.carrinho:
+        if not state.carrinho: 
             mostrar_mensagem(page, "Carrinho vazio", ft.Colors.RED)
             return
 
@@ -634,6 +744,22 @@ def main(page: ft.Page):
             forma_pgto = forma_pagamento.value
             total = sum(item['subtotal'] for item in state.carrinho)
 
+            if forma_pgto == "cartao":
+                # Prepara e abre modal do cartão
+                cartao_nome_cliente.value = ""
+                cartao_nome_cliente.error_text = None
+                cartao_tipo.value = "debito"
+                cartao_parcelas.value = "1"
+                cartao_parcelas.disabled = True
+                
+                data_hora = datetime.now().strftime('%d/%m/%Y %H:%M')
+                cartao_info_venda.value = f"Valor: R$ {total:.2f}\nData: {data_hora}"
+                
+                page.dialog = modal_dados_cartao
+                modal_dados_cartao.open = True
+                page.update()
+                return
+
             if forma_pgto == "dinheiro":
                 try:
                     valor_pago = float(valor_recebido.value)
@@ -659,6 +785,8 @@ def main(page: ft.Page):
             }
 
             venda_id = registrar_venda_db(venda, state.carrinho)
+            state.ultima_venda_id = venda_id
+            abrir_modal_comprovante()
             state.carrinho.clear()
             atualizar_carrinho()
             modal_checkout.open = False
@@ -731,20 +859,36 @@ def main(page: ft.Page):
         """Navega para a página de cadastro de produtos"""
         page.clean()
         page.add(header)
-        page.add(linhacadastros)
-        page.add(botao_voltar)
+        page.add(ft.Container(
+            content=ft.Column([
+                linhacadastros,
+                botao_voltar
+            ]),
+            padding=20
+        ))
         page.update()
 
     def voltar_pagina_inicial(e):
         """Volta para a página inicial"""
         page.clean()
-        page.add(header, success_vendas_text)
+        page.add(header)
 
-        page.add(ft.Row([
-            ft.Column([secao_carrinho, form_busca,
-                      Botao_pagina_cadastro], expand=2)
+        page.add(ft.Container(
+            content=ft.Column([
+                success_vendas_text,
+                ft.Row([
+                    ft.Column([secao_carrinho, form_busca,
+                               Botao_pagina_cadastro], expand=2)
+                ], expand=True)
+            ]),
+            padding=20
+        ))
 
-        ], expand=True))
+        # Re-adicionar os modais que foram removidos pelo page.clean()
+        page.add(modal_checkout)
+        page.add(modal_dados_cartao)
+        page.add(modal_comprovante)
+
         page.update()
 
     def mostrar_relatorios(e):
@@ -756,25 +900,27 @@ def main(page: ft.Page):
         state.dashboard.atualizar_tudo()
 
         # ---- LAYOUT ----
-        page.add(
-            ft.Text("📊 Dashboard de Vendas", size=30,
-                    weight="bold", color=PRIMARY_COLOR),
-            state.dashboard.cards,
-            ft.Row([state.dashboard.grafico_pizza,
-                    state.dashboard.grafico_linha], expand=True),
-            state.dashboard.grafico_linha_pagamento,
-            state.dashboard.grafico_barras,
-            ft.Divider(),
+        page.add(ft.Container(
+            content=ft.Column([
+                ft.Text("📊 Dashboard de Vendas", size=30,
+                        weight="bold", color=PRIMARY_COLOR),
+                state.dashboard.cards,
+                ft.Row([state.dashboard.grafico_pizza,
+                        state.dashboard.tabela_cartoes], expand=True),
+                state.dashboard.grafico_linha_pagamento,
+                state.dashboard.grafico_barras,
+                ft.Divider(),
 
-            state.dashboard.criar_grafico_estoque(),
-            ft.Divider(),
-            ft.Text("📆 Relatório por Data", size=25,
-                    weight="bold", color=TEXT_COLOR),
-            ft.Row([botao_data]),
-            resultado_area
-        )
-
-        page.add(botao_voltar)
+                state.dashboard.criar_grafico_estoque(),
+                ft.Divider(),
+                ft.Text("📆 Relatório por Data", size=25,
+                        weight="bold", color=TEXT_COLOR),
+                ft.Row([botao_data]),
+                resultado_area,
+                botao_voltar
+            ]),
+            padding=20
+        ))
         page.update()
 
     # ==============================================================
@@ -856,8 +1002,6 @@ def main(page: ft.Page):
         ],
         actions_alignment=ft.MainAxisAlignment.SPACE_EVENLY
     )
-
-    page.add(modal_checkout)
 
     # Modal de produto
     modal_produto = ft.AlertDialog(
@@ -987,6 +1131,176 @@ def main(page: ft.Page):
     nao_salva = ft.Text(size=20, color=ft.Colors.RED_700)
 
     # ==============================================================
+    # MODAL E FUNÇÕES DO COMPROVANTE (NOVO E MELHORADO)
+    # ==============================================================
+
+    def gerar_texto_comprovante(venda_id):
+        """Gera o conteúdo de texto de um comprovante de venda."""
+        venda = obter_venda(venda_id)
+        itens = obter_itens_venda(venda_id)
+
+        if not venda:
+            return None
+
+        # Formata o texto do comprovante
+        texto = f"=== COMPROVANTE DE VENDA ===\n"
+        texto += f"Loja: Graça Presentes\n"
+        texto += f"WhatsApp: (11) 99999-9999\n" # <--- COLOQUE O NÚMERO DA LOJA AQUI
+        texto += f"Data: {venda[1]}\n"
+        texto += f"Venda ID: #{venda[0]}\n"
+        texto += "-" * 30 + "\n"
+
+        for item in itens:
+            # item: id, venda_id, prod_cod, nome, preco, qtd, subtotal
+            texto += f"{item[5]}x {item[3]}\n"
+            texto += f"   R$ {item[4]:.2f} -> R$ {item[6]:.2f}\n"
+
+        texto += "-" * 30 + "\n"
+        texto += f"TOTAL: R$ {venda[2]:.2f}\n"
+        texto += f"Forma Pagamento: {venda[3].upper()}\n"
+
+        texto += "\n   Obrigado pela preferência!   \n"
+        texto += "==============================\n"
+        return texto
+
+    def copiar_comprovante(e):
+        """Copia o texto do comprovante para a área de transferência."""
+        texto = gerar_texto_comprovante(state.ultima_venda_id)
+        if texto:
+            page.set_clipboard(texto)
+            mostrar_mensagem(page, "✅ Texto do comprovante copiado!")
+        else:
+            mostrar_mensagem(page, "Erro ao gerar comprovante.", ft.Colors.RED)
+        modal_comprovante.open = False
+        page.update()
+
+    def imprimir_comprovante_local(e):
+        """Salva o comprovante como .txt e abre localmente."""
+        texto = gerar_texto_comprovante(state.ultima_venda_id)
+        if not texto:
+            mostrar_mensagem(page, "Erro ao gerar comprovante.", ft.Colors.RED)
+            return
+
+        filename = f"comprovante_{state.ultima_venda_id}.txt"
+        try:
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(texto)
+
+            if platform.system() == "Windows":
+                os.startfile(filename)
+            else:
+                import subprocess
+                opener = "open" if platform.system() == "Darwin" else "xdg-open"
+                subprocess.call([opener, filename])
+        except Exception as ex:
+            mostrar_mensagem(
+                page, f"Erro ao abrir comprovante: {ex}", ft.Colors.RED)
+
+        modal_comprovante.open = False
+        page.update()
+
+    def mostrar_qr_code(e):
+        """Gera e exibe um QR Code com o texto do comprovante."""
+        texto = gerar_texto_comprovante(state.ultima_venda_id)
+        if not texto:
+            mostrar_mensagem(page, "Erro ao gerar comprovante.", ft.Colors.RED)
+            return
+
+        qr = qrcode.QRCode(version=None, box_size=10, border=4)
+        qr.add_data(texto)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        # Atualiza o conteúdo do modal existente para mostrar o QR Code
+        modal_comprovante.title = ft.Text("Escaneie o QR Code")
+        modal_comprovante.content = ft.Column([
+            ft.Image(src_base64=img_str, width=300, height=300, fit=ft.ImageFit.CONTAIN),
+            ft.Text("Aponte a câmera para ler o comprovante", text_align=ft.TextAlign.CENTER)
+        ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER, width=300)
+        
+        modal_comprovante.actions = [
+            ft.TextButton("Voltar", on_click=lambda e: abrir_modal_comprovante()),
+            ft.TextButton("Fechar", on_click=lambda e: fechar_dialogo(modal_comprovante))
+        ]
+        modal_comprovante.update()
+
+    def enviar_whatsapp(e):
+        """Abre o WhatsApp com o comprovante pronto para ser enviado."""
+        texto = gerar_texto_comprovante(state.ultima_venda_id)
+        if not texto:
+            mostrar_mensagem(page, "Erro ao gerar comprovante.", ft.Colors.RED)
+            return
+
+        numero_cliente = whatsapp_numero_field.value.strip()
+        if not numero_cliente.isdigit() or len(numero_cliente) < 10:
+            whatsapp_numero_field.error_text = "19987790800"
+            whatsapp_numero_field.update()
+            return
+
+        whatsapp_numero_field.error_text = ""
+        whatsapp_numero_field.update()
+
+        texto_url = urllib.parse.quote(texto)
+        url = f"https://wa.me/55{numero_cliente}?text={texto_url}"
+
+        webbrowser.open(url)
+        modal_comprovante.open = False
+        page.update()
+
+    def fechar_dialogo(dialogo):
+        dialogo.open = False
+        page.update()
+
+    def abrir_modal_comprovante():
+        """Abre o modal com as opções de compartilhamento do comprovante."""
+        if not state.ultima_venda_id:
+            return
+        whatsapp_numero_field.value = ""
+        whatsapp_numero_field.error_text = ""
+        
+        # Reconstrói o conteúdo do menu principal do modal
+        modal_comprovante.title = ft.Text("Venda Registrada! E agora?", weight="bold")
+        modal_comprovante.content = ft.Column([
+            ft.Text("Escolha como deseja fornecer o comprovante ao cliente."),
+            ft.Divider(),
+            ft.ElevatedButton("🖨️ Imprimir / Salvar .txt",
+                             icon=ft.Icons.PRINT, on_click=imprimir_comprovante_local, width=300),
+            ft.ElevatedButton("📋 Copiar Texto do Comprovante",
+                             icon=ft.Icons.COPY, on_click=copiar_comprovante, width=300),
+            ft.ElevatedButton("📱 Exibir QR Code na Tela",
+                             icon=ft.Icons.QR_CODE_2, on_click=mostrar_qr_code, width=300),
+            ft.Divider(),
+            ft.Text("Enviar via WhatsApp:", weight="bold"),
+            whatsapp_numero_field,
+            ft.ElevatedButton("↗️ Enviar via WhatsApp", icon=ft.Icons.SEND,
+                             on_click=enviar_whatsapp, width=300, bgcolor=ft.Colors.GREEN_700, color=ft.Colors.WHITE),
+        ], tight=True, spacing=10, width=300)
+        
+        modal_comprovante.actions = [
+            ft.TextButton("Fechar", on_click=lambda e: fechar_dialogo(modal_comprovante))
+        ]
+        
+        page.dialog = modal_comprovante
+        modal_comprovante.open = True
+        page.update()
+
+    whatsapp_numero_field = ft.TextField(
+        label="Nº do WhatsApp do Cliente (DDD + Número)", prefix_text="+55")
+
+    modal_comprovante = ft.AlertDialog(
+        modal=True,
+        # Conteúdo inicial vazio, será preenchido por abrir_modal_comprovante
+        title=ft.Text(""),
+        content=ft.Container(),
+        actions=[],
+        actions_alignment=ft.MainAxisAlignment.END
+    )
+
+    # ==============================================================
     # LAYOUT PRINCIPAL
     # ==============================================================
 
@@ -994,14 +1308,17 @@ def main(page: ft.Page):
 
     # Logo
     logo_image = ft.Image(
-        src="logo (2).png",
-        height=120,
+        src="gata.png",
+        height=150,
         fit=ft.ImageFit.CONTAIN
     )
 
     logo_container = ft.Container(
         content=logo_image,
-        padding=ft.padding.only(right=15)
+        padding=ft.padding.only(right=15),
+        on_click=voltar_pagina_inicial,
+        ink=True,
+        border_radius=10
     )
     # Textos
     title_text = ft.Text(
@@ -1075,7 +1392,7 @@ def main(page: ft.Page):
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER
         ),
-        padding=ft.padding.symmetric(horizontal=30, vertical=15),
+        padding=ft.padding.symmetric(horizontal=30, vertical=5),
 
         margin=ft.margin.only(bottom=25),
         gradient=ft.LinearGradient(
@@ -1165,29 +1482,34 @@ def main(page: ft.Page):
         content=ft.Column([
             ft.Text("Buscar Produtos", size=20, weight=ft.FontWeight.BOLD),
             ft.Divider(),
-            campo_busca,
-            ft.ElevatedButton(
-                "Buscar",
-                icon=ft.Icons.SEARCH,
-                on_click=buscar_produto,
-                width=300,
-                style=ft.ButtonStyle(
-                    bgcolor=ft.Colors.BLUE_700,
-                    color=ft.Colors.WHITE
+            ft.Row([
+                campo_busca,
+                ft.ElevatedButton(
+                    "Buscar",
+                    icon=ft.Icons.SEARCH,
+                    on_click=buscar_produto,
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.BLUE_700,
+                        color=ft.Colors.WHITE
+                    )
+                ),
+            ]),
+            ft.Row([
+                ft.Container(
+                    content=resultados_busca,
+                    border=ft.border.all(1, ft.Colors.GREY_300),
+                    border_radius=5,
+                    padding=10,
+                    height=300,
+                    width=450
+                ),
+                ft.Container(
+                    content=busca_image_preview,
+                    alignment=ft.alignment.center,
+                    padding=10,
+                    expand=True
                 )
-            ),
-            ft.Container(
-                content=resultados_busca,
-                border=ft.border.all(1, ft.Colors.GREY_300),
-                border_radius=5,
-                padding=10,
-                height=300
-            ),
-            ft.Container(
-                content=busca_image_preview,
-                alignment=ft.alignment.center,
-                padding=10
-            )
+            ], vertical_alignment=ft.CrossAxisAlignment.START)
         ]),
         padding=10,
         border=ft.border.all(1, ft.Colors.GREY_300),
@@ -1321,13 +1643,20 @@ def main(page: ft.Page):
                             vertical_alignment=ft.CrossAxisAlignment.START, spacing=20)
 
     page.add(header)
-    page.add(success_vendas_text)
-    page.update()
-    page.add(ft.Row([
-        ft.Column([secao_carrinho, form_busca, image_preview,
-                  busca_image_preview, Botao_pagina_cadastro], expand=2)
+    page.add(ft.Container(
+        content=ft.Column([
+            success_vendas_text,
+            ft.Row([
+                ft.Column([secao_carrinho, form_busca, Botao_pagina_cadastro], expand=2)
+            ], expand=True)
+        ]),
+        padding=20
+    ))
 
-    ], expand=True))
+    # Adiciona os modais ao final para garantir que o header fique no topo (índice 0)
+    page.add(modal_checkout)
+    page.add(modal_dados_cartao)
+    page.add(modal_comprovante)
 
     # Inicialização
 

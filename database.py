@@ -38,20 +38,21 @@ setup_logging()
 
 
 def get_db_path():
-    """Banco de dados na pasta C:\pacoteflet"""
+    """Obtém o caminho do banco de dados com tratamento de erro"""
     try:
         logging.info("Obtendo caminho do banco de dados...")
 
-        # USA SUA PASTA ESPECÍFICA
-        base_dir = r"C:\pacoteflet"
+        # Verifica se está executando como executável PyInstaller
+        if getattr(sys, 'frozen', False):
+            # Se é executável, usa o diretório do executável
+            base_dir = os.path.dirname(sys.executable)
+            logging.info(f"Modo executável - Diretório: {base_dir}")
+        else:
+            # Se é script Python, usa o diretório do script
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            logging.info(f"Modo desenvolvimento - Diretório: {base_dir}")
 
-        logging.info(f"Usando pasta: {base_dir}")
-
-        # Cria a pasta pacoteflet se não existir
-        os.makedirs(base_dir, exist_ok=True)
-        logging.info(f"Pasta base: {base_dir}")
-
-        # Cria subpasta database dentro do pacoteflet
+        # Cria a pasta database se não existir
         database_dir = os.path.join(base_dir, "database")
         os.makedirs(database_dir, exist_ok=True)
         logging.info(f"Pasta database: {database_dir}")
@@ -132,6 +133,18 @@ def criar_banco():
             subtotal REAL NOT NULL,
             FOREIGN KEY (venda_id) REFERENCES vendas(id),
             FOREIGN KEY (produto_codigo) REFERENCES produtos(codigo)
+        )
+        ''')
+
+        # Tabela de dados do cartão (NOVA)
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS dados_cartao (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            nome_cliente TEXT,
+            tipo_cartao TEXT,
+            parcelas INTEGER,
+            FOREIGN KEY (venda_id) REFERENCES vendas(id)
         )
         ''')
 
@@ -249,7 +262,7 @@ def atualizar_estoque_db(codigo, quantidade):
         raise
 
 
-def registrar_venda_db(venda, itens):
+def registrar_venda_db(venda, itens, dados_cartao=None):
     """Registra uma venda e seus itens no banco de dados"""
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -269,6 +282,19 @@ def registrar_venda_db(venda, itens):
         ))
 
         venda_id = cursor.lastrowid
+
+        # Insere os dados do cartão se houver
+        if dados_cartao:
+            cursor.execute('''
+            INSERT INTO dados_cartao
+            (venda_id, nome_cliente, tipo_cartao, parcelas)
+            VALUES (?, ?, ?, ?)
+            ''', (
+                venda_id,
+                dados_cartao.get('nome_cliente'),
+                dados_cartao.get('tipo_cartao'),
+                dados_cartao.get('parcelas')
+            ))
 
         # Insere os itens vendidos
         for item in itens:
@@ -293,6 +319,32 @@ def registrar_venda_db(venda, itens):
     except Exception as e:
         logging.error(f"ERRO ao registrar venda: {e}")
         raise
+
+def obter_venda(venda_id):
+    """Busca uma venda pelo ID"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM vendas WHERE id = ?", (venda_id,))
+        venda = cursor.fetchone()
+        conn.close()
+        return venda
+    except Exception as e:
+        logging.error(f"ERRO ao buscar venda {venda_id}: {e}")
+        return None
+
+def obter_itens_venda(venda_id):
+    """Busca os itens de uma venda pelo ID"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM itens_vendidos WHERE venda_id = ?", (venda_id,))
+        itens = cursor.fetchall()
+        conn.close()
+        return itens
+    except Exception as e:
+        logging.error(f"ERRO ao buscar itens da venda {venda_id}: {e}")
+        return []
 
 # ==============================================================
 # FUNÇÃO DE INICIALIZAÇÃO DO BANCO
