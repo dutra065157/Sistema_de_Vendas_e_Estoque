@@ -75,7 +75,7 @@ Certifique-se de ter o Python instalado em sua máquina.
 
 ## 📦 Criando o Executável (.exe)
 
-O projeto já inclui um arquivo de especificação (`spec.py`) para o PyInstaller. Para gerar um executável standalone para Windows:
+O projeto já inclui um arquivo de especificação (`graca.spec`) para o PyInstaller. Para gerar um executável standalone para Windows:
 
 1. Instale o PyInstaller:
 
@@ -86,7 +86,7 @@ O projeto já inclui um arquivo de especificação (`spec.py`) para o PyInstalle
 2. Execute o build usando o arquivo de especificação:
 
    ```bash
-   pyinstaller spec.py
+   pyinstaller graca.spec
    ```
 
 3. O executável será gerado na pasta `dist/Graça_Presentes`.
@@ -145,7 +145,6 @@ O GRAÇA PRESENTES é um sistema desktop desenvolvido em Python com interface es
     📈 DASHBOARD COM ANALYTICS
 
     🏷️ CADASTRO DE PRODUTOS COM IMAGENS
-
 
 > > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
@@ -241,7 +240,6 @@ Exibição de imagens dos produtos, Listagem de produtos cadastrados
 <p align="center">
 <<<<<<< HEAD
 =======
-
 
 > > > > > > > 72367cf482d8edcbe790f7113f26b8eb7f7dd0d8
 
