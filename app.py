@@ -1,14 +1,12 @@
 import flet as ft
 import os
+import sys
 import platform
+import shutil
 from datetime import datetime
 import asyncio
 import traceback
-try:
-    import pandas as pd
-except ImportError:
-    pd = None # Fallback caso pandas falhe no exe, embora esteja no spec
-
+import pandas as pd
 from datetime import date
 from relatorio import *
 from database import *
@@ -79,7 +77,7 @@ def confirmar_acao(page, mensagem, callback):
 
 def main(page: ft.Page):
     # Configuração inicial da página
-    page.title = "Graça Presentes (v1.1)"
+    page.title = "Graça Presentes "
 
     page.window.maximized = True
     page.padding = 0
@@ -163,54 +161,61 @@ def main(page: ft.Page):
 
     def atualizar_tabela_produtos(filtro=None):
         """Atualiza a tabela de produtos com dados do banco"""
-        produtos = buscar_produtos_db(filtro)
+        try:
+            produtos = buscar_produtos_db(filtro)
 
-        tabela_produtos.rows = [
-            ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(p[0], weight=ft.FontWeight.BOLD)),
-                    ft.DataCell(ft.Text(p[1])),
-                    ft.DataCell(
-                        ft.Text(f"R$ {p[2]:.2f}", color=ft.Colors.GREEN)),
-                    ft.DataCell(ft.Text(str(p[3]),
-                                        color=ft.Colors.RED if p[3] < 5 else ft.Colors.BLACK)),
-                    ft.DataCell(ft.Text(p[4].capitalize(),
-                                        color=ft.Colors.BLUE_700)),
-                    ft.DataCell(
-                        ft.Row([
-                            ft.IconButton(
-                                ft.Icons.REMOVE_RED_EYE,
-                                icon_color=ft.Colors.BLUE_700,
-                                tooltip="Visualizar",
-                                on_click=lambda e, cod=p[0]: mostrar_modal_produto(
-                                    cod)
-                            ),
-                            ft.IconButton(
-                                ft.Icons.DELETE,
-                                icon_color=ft.Colors.RED_700,
-                                tooltip="Excluir",
-                                on_click=lambda e, cod=p[0]: confirmar_exclusao(
-                                    cod)
-                            ),
-                        ], spacing=5)
-                    ),
-                ],
-                on_select_changed=lambda e, cod=p[0]: selecionar_produto(cod),
-                color=ft.Colors.GREY_100 if idx % 2 == 0 else None
-            ) for idx, p in enumerate(produtos)
-        ]
+            if not produtos:
+                tabela_produtos.rows = [
+                    ft.DataRow(
+                        cells=[
+                            ft.DataCell(ft.Text("Nenhum produto cadastrado", italic=True)),
+                            ft.DataCell(ft.Text("")),
+                            ft.DataCell(ft.Text("")),
+                            ft.DataCell(ft.Text("")),
+                            ft.DataCell(ft.Text("")),
+                            ft.DataCell(ft.Text("")),
+                        ]
+                    )
+                ]
+            else:
+                novas_linhas = []
+                for idx, p in enumerate(produtos):
+                    # Conversão segura dos dados
+                    novas_linhas.append(
+                        ft.DataRow(
+                            cells=[
+                                ft.DataCell(ft.Text(str(p[0]), weight=ft.FontWeight.BOLD)),
+                                ft.DataCell(ft.Text(str(p[1]))),
+                                ft.DataCell(ft.Text(f"R$ {float(p[2]):.2f}", color=ft.Colors.GREEN)),
+                                ft.DataCell(ft.Text(str(p[3]), color=ft.Colors.RED if int(p[3]) < 5 else ft.Colors.BLACK)),
+                                ft.DataCell(ft.Text(str(p[4]).capitalize(), color=ft.Colors.BLUE_700)),
+                                ft.DataCell(
+                                    ft.Row([
+                                        ft.IconButton(
+                                            ft.Icons.REMOVE_RED_EYE,
+                                            icon_color=ft.Colors.BLUE_700,
+                                            tooltip="Visualizar",
+                                            on_click=lambda e, cod=p[0]: mostrar_modal_produto(cod)
+                                        ),
+                                        ft.IconButton(
+                                            icon=ft.Icons.DELETE,
+                                            icon_color=ft.Colors.RED_700,
+                                            tooltip="Excluir",
+                                            on_click=lambda e, cod=p[0]: confirmar_exclusao(cod)
+                                        ),
+                                    ], spacing=5)
+                                ),
+                            ],
+                            on_select_changed=lambda e, cod=p[0]: selecionar_produto(cod),
+                            color=ft.Colors.GREY_100 if idx % 2 == 0 else None
+                        )
+                    )
+                tabela_produtos.rows = novas_linhas
 
-        if not produtos:
-            tabela_produtos.rows = [
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(
-                            ft.Text("Nenhum produto cadastrado", italic=True)),
-                        *[ft.DataCell(ft.Text("")) for _ in range(5)]
-                    ]
-                )
-            ]
-        page.update()
+            page.update()
+        except Exception as ex:
+            print(f"Erro ao atualizar tabela: {ex}")
+            traceback.print_exc()
 
     def atualizar_seletor_produtos():
         """Atualiza o dropdown de seleção de produtos"""
@@ -274,6 +279,39 @@ def main(page: ft.Page):
         nao_salva.visible = False
         nao_salva.update()
 
+        # Lógica para criar cópia da imagem na pasta do sistema
+        caminho_imagem_final = state.uploaded_image_path
+        
+        if state.uploaded_image_path:
+            try:
+                # Cria pasta segura dentro do projeto se não existir
+                # Verifica se está rodando como .exe (frozen) ou script .py
+                if getattr(sys, 'frozen', False):
+                    basedir = os.path.dirname(sys.executable)
+                else:
+                    basedir = os.path.dirname(os.path.abspath(__file__))
+                
+                pasta_imagens = os.path.join(basedir, "imagens_produtos")
+                if not os.path.exists(pasta_imagens):
+                    os.makedirs(pasta_imagens)
+                
+                # Gera nome padronizado para a imagem: img_CODIGO.ext
+                extensao = os.path.splitext(state.uploaded_image_path)[1]
+                # Sanitiza o código para evitar caracteres inválidos em nomes de arquivo
+                cod_arquivo = codigo_produto.value.strip().replace('/', '-').replace('\\', '-')
+                novo_nome = f"img_{cod_arquivo}{extensao}"
+                destino = os.path.join(pasta_imagens, novo_nome)
+                
+                # Copia a imagem apenas se a origem for diferente do destino
+                if os.path.abspath(state.uploaded_image_path) != os.path.abspath(destino):
+                    shutil.copy(state.uploaded_image_path, destino)
+                    caminho_imagem_final = destino
+                else:
+                    # Já está no local correto (ex: editando produto já salvo corretamente)
+                    caminho_imagem_final = destino
+            except Exception as ex:
+                print(f"Erro ao copiar imagem: {ex}")
+
         try:
             produto = {
                 'codigo': codigo_produto.value.strip(),
@@ -282,7 +320,7 @@ def main(page: ft.Page):
                 'quantidade': int(quantidade_produto.value),
                 'categoria': categoria_produto.value if categoria_produto.value else "outros",
                 'descricao': descricao_produto.value.strip() if descricao_produto.value else "",
-                'image_path': state.uploaded_image_path
+                'image_path': caminho_imagem_final
             }
 
             salvar_produto_db(produto)
@@ -332,19 +370,21 @@ def main(page: ft.Page):
     # MODAL DE DETALHES DO PRODUTO
     # ==============================================================
 
-    modal_codigo = ft.Text()
-    modal_nome = ft.Text()
-    modal_preco = ft.Text()
-    modal_estoque = ft.Text()
-    modal_categoria = ft.Text()
-    modal_descricao = ft.Text()
+    modal_codigo = ft.Text(size=22, weight=ft.FontWeight.W_500)
+    modal_nome = ft.Text(size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)
+    modal_preco = ft.Text(size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
+    modal_estoque = ft.Text(size=22, weight=ft.FontWeight.W_500)
+    modal_categoria = ft.Text(size=22, weight=ft.FontWeight.W_500)
+    modal_descricao = ft.Text(size=20, italic=True)
     modal_image = ft.Image(
-        width=200,
-        height=150,
+        width=350,
+        height=300,
         fit=ft.ImageFit.CONTAIN,
         border_radius=ft.border_radius.all(5),
         visible=False
     )
+
+
 
     def mostrar_modal_produto(codigo):
         """Exibe modal com detalhes do produto"""
@@ -367,27 +407,47 @@ def main(page: ft.Page):
             modal_produto.open = True
             page.update()
 
-    def fechar_modal():
+    def fechar_modal(e=None):
         modal_produto.open = False
         page.update()
 
-    def editar_produto_modal():
+    def editar_produto_modal(e=None):
         """Preenche formulário com produto do modal"""
         codigo = modal_codigo.value
+        fechar_modal(e)
+        cadastrar_produto_pagina(e) # Garante que a tela de cadastro/edição seja carregada
         selecionar_produto(codigo)
-        fechar_modal()
         codigo_produto.focus()
 
     def confirmar_exclusao(codigo):
-        """Confirma exclusão de produto"""
-        def excluir():
+        """Confirma exclusão de produto com modal personalizado"""
+        # Busca o produto para obter o nome e exibir no modal
+        prod = buscar_produto_db(codigo)
+        nome_produto = prod[1] if prod else "este produto"
+
+        # Atualiza o texto do modal global
+        txt_modal_exclusao.value = f"Você tem certeza que deseja remover permanentemente '{nome_produto}'?\nEsta ação não pode ser desfeita."
+        
+        # Define a ação do botão confirmar especificamente para este produto
+        def ao_confirmar(e):
             excluir_produto_db(codigo)
-            mostrar_mensagem(page, "🗑️ Produto excluído com sucesso!")
+            success_delete_text.value = "🗑️ Produto excluído com sucesso!"
             atualizar_tabela_produtos()
             atualizar_seletor_produtos()
+            modal_exclusao.open = False
+            page.update()
 
-        confirmar_acao(
-            page, "Tem certeza que deseja excluir este produto?", excluir)
+            async def clear_delete_msg():
+                await asyncio.sleep(5)
+                success_delete_text.value = ""
+                page.update()
+            page.run_task(clear_delete_msg)
+
+        btn_modal_exclusao.on_click = ao_confirmar
+        
+        page.dialog = modal_exclusao
+        modal_exclusao.open = True
+        page.update()
 
     # ==============================================================
     # FUNÇÕES DE BUSCA
@@ -564,23 +624,40 @@ def main(page: ft.Page):
             state.carrinho.remove(item)
             atualizar_carrinho()
             atualizar_tabela_produtos()
-            mostrar_mensagem(page, "❌ Item removido do carrinho")
+            success_text_remover.value = "❌ Item removido do carrinho"
+            page.update()
+
+            async def clear_success():
+                await asyncio.sleep(5)
+                success_text_remover.value = ""
+                page.update()
+            page.run_task(clear_success)
+
+    
 
     def limpar_carrinho(e):
         """Limpa todos os itens do carrinho"""
         if not state.carrinho:
+            mostrar_mensagem(page, "O carrinho já está vazio!", ft.Colors.ORANGE)
             return
 
-        def limpar():
+        try:
             for item in state.carrinho:
                 atualizar_estoque_db(item['codigo'], item['quantidade'])
             state.carrinho.clear()
             atualizar_carrinho()
             atualizar_tabela_produtos()
-            mostrar_mensagem(page, "🔄 Carrinho limpo")
 
-        confirmar_acao(
-            page, "Tem certeza que deseja limpar o carrinho?", limpar)
+            success_vendas_text.value = "🔄 Carrinho limpo com sucesso!"
+            page.update()
+
+            async def clear_success():
+                await asyncio.sleep(5)
+                success_vendas_text.value = ""
+                page.update()
+            page.run_task(clear_success)
+        except Exception as ex:
+            mostrar_mensagem(page, f"Erro ao limpar carrinho: {ex}", ft.Colors.RED)
 
     # ==============================================================
     # MODAL DE CHECKOUT
@@ -863,6 +940,8 @@ def main(page: ft.Page):
         """Navega para a página de cadastro de produtos"""
         page.clean()
         page.add(header)
+        page.add(modal_produto)
+        page.add(modal_exclusao)
         page.add(ft.Container(
             content=ft.Column([
                 linhacadastros,
@@ -879,19 +958,20 @@ def main(page: ft.Page):
 
         page.add(ft.Container(
             content=ft.Column([
-                success_vendas_text,
+                ft.Column([success_vendas_text, success_text_remover], spacing=0),
                 ft.Row([
                     ft.Column([secao_carrinho, form_busca,
                                Botao_pagina_cadastro], expand=2)
                 ], expand=True)
             ]),
-            padding=20
+            padding=ft.padding.only(left=20, right=20, bottom=20, top=0)
         ))
 
         # Re-adicionar os modais que foram removidos pelo page.clean()
         page.add(modal_checkout)
         page.add(modal_dados_cartao)
         page.add(modal_comprovante)
+        page.add(modal_exclusao)
 
         page.update()
 
@@ -911,16 +991,17 @@ def main(page: ft.Page):
                 state.dashboard.cards,
                 ft.Row([state.dashboard.grafico_pizza,
                         state.dashboard.tabela_cartoes], expand=True),
-                state.dashboard.grafico_linha_pagamento,
-                state.dashboard.grafico_barras,
-                ft.Divider(),
-
-                state.dashboard.criar_grafico_estoque(),
                 ft.Divider(),
                 ft.Text("📆 Relatório por Data", size=25,
                         weight="bold", color=TEXT_COLOR),
                 ft.Row([botao_data]),
                 resultado_area,
+                ft.Divider(),
+                state.dashboard.grafico_linha_pagamento,
+                state.dashboard.grafico_barras,
+                ft.Divider(),
+
+                state.dashboard.criar_grafico_estoque(),
                 botao_voltar
             ]),
             padding=20
@@ -1010,28 +1091,88 @@ def main(page: ft.Page):
     # Modal de produto
     modal_produto = ft.AlertDialog(
         modal=True,
-        title=ft.Text("Detalhes do Produto", weight=ft.FontWeight.BOLD),
-        content=ft.Column([
-            ft.Row(
-                [ft.Text("Código:", weight=ft.FontWeight.BOLD, size=20), modal_codigo]),
-            ft.Row([ft.Text("Nome:", weight=ft.FontWeight.BOLD), modal_nome]),
-            ft.Row([ft.Text("Preço:", weight=ft.FontWeight.BOLD), modal_preco]),
-            ft.Row([ft.Text("Estoque:", weight=ft.FontWeight.BOLD), modal_estoque]),
-            ft.Row(
-                [ft.Text("Categoria:", weight=ft.FontWeight.BOLD), modal_categoria]),
-            ft.Row(
-                [ft.Text("Descrição:", weight=ft.FontWeight.BOLD), modal_descricao]),
-            ft.Container(content=modal_image, alignment=ft.alignment.center)
-        ], tight=True, spacing=10),
+        title=ft.Text("INFORMAÇÕES DETALHADAS", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_800),
+        content=ft.Container(
+            content=ft.Row([
+                # Lado Esquerdo: Imagem
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("Imagem do Produto", size=18, weight="bold", color=ft.Colors.GREY_700),
+                        ft.Divider(),
+                        modal_image,
+                        ft.Container(
+                            content=ft.Icon(ft.Icons.IMAGE_NOT_SUPPORTED, size=100, color=ft.Colors.GREY_300),
+                            visible=False, # Lógica para mostrar caso não tenha imagem se desejar
+                        )
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=20,
+                    bgcolor=ft.Colors.GREY_50,
+                    border_radius=10,
+                ),
+                # Lado Direito: Informações
+                ft.Container(
+                    content=ft.Column([
+                        ft.Row([ft.Text("📦 Nome:", weight=ft.FontWeight.BOLD, size=20, color=ft.Colors.GREY_700), modal_nome]),
+                        ft.Row([ft.Text("🔢 Código:", weight=ft.FontWeight.BOLD, size=20, color=ft.Colors.GREY_700), modal_codigo]),
+                        ft.Row([ft.Text("💰 Preço:", weight=ft.FontWeight.BOLD, size=20, color=ft.Colors.GREY_700), modal_preco]),
+                        ft.Row([ft.Text("📊 Estoque:", weight=ft.FontWeight.BOLD, size=20, color=ft.Colors.GREY_700), modal_estoque]),
+                        ft.Row([ft.Text("🏷️ Categoria:", weight=ft.FontWeight.BOLD, size=20, color=ft.Colors.GREY_700), modal_categoria]),
+                        ft.Text("📝 Descrição:", weight=ft.FontWeight.BOLD, size=20, color=ft.Colors.GREY_700),
+                        ft.Container(content=modal_descricao, padding=ft.padding.only(left=10), width=400),
+                    ], spacing=15, scroll=ft.ScrollMode.AUTO),
+                    padding=20,
+                    expand=True
+                )
+            ], vertical_alignment=ft.CrossAxisAlignment.START, tight=True),
+            width=900,
+            height=500,
+        ),
         actions=[
-            ft.TextButton("Editar", on_click=editar_produto_modal,
-                          style=ft.ButtonStyle(color=ft.Colors.BLUE_700)),
-            ft.TextButton("Excluir",
-                          style=ft.ButtonStyle(color=ft.Colors.RED_700)),
-            ft.TextButton("Fechar", on_click=fechar_modal,
-                          style=ft.ButtonStyle(color=ft.Colors.GREY_700))
+            ft.ElevatedButton(
+                "✏️ Editar Produto", 
+                on_click=editar_produto_modal,
+                style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE, padding=20)
+            ),
+            ft.ElevatedButton(
+                "🗑️ Excluir",
+                bgcolor=ft.Colors.RED_700,
+                color=ft.Colors.WHITE,
+                on_click=lambda e: confirmar_exclusao(modal_codigo.value),
+                style=ft.ButtonStyle(padding=20)
+            ),
+            ft.TextButton(
+                "Fechar", 
+                on_click=fechar_modal,
+                style=ft.ButtonStyle(color=ft.Colors.GREY_700, padding=20)
+            )
         ],
-        actions_alignment=ft.MainAxisAlignment.END
+        actions_alignment=ft.MainAxisAlignment.END,
+        shape=ft.RoundedRectangleBorder(radius=15),
+    )
+
+    # Modal de exclusão global (Personalizado)
+    txt_modal_exclusao = ft.Text("", size=16)
+    btn_modal_exclusao = ft.ElevatedButton("Excluir", bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE)
+    
+    modal_exclusao = ft.AlertDialog(
+        modal=True,
+        title=ft.Row([
+            ft.Icon(ft.Icons.WARNING_ROUNDED, color=ft.Colors.RED_700, size=30),
+            ft.Text(" Confirmar Exclusão", color=ft.Colors.RED_700, weight=ft.FontWeight.BOLD)
+        ], alignment=ft.MainAxisAlignment.START),
+        content=ft.Container(
+            content=txt_modal_exclusao,
+            padding=ft.padding.only(top=10, bottom=10),
+            width=400
+        ),
+        actions=[
+            btn_modal_exclusao,
+            ft.TextButton("Cancelar", 
+                         style=ft.ButtonStyle(color=ft.Colors.GREY_700),
+                         on_click=lambda e: fechar_dialogo(modal_exclusao))
+        ],
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        shape=ft.RoundedRectangleBorder(radius=15)
     )
 
     # Componentes do formulário de cadastro
@@ -1130,7 +1271,8 @@ def main(page: ft.Page):
     )
 
     # Mensagens
-    success_vendas_text = ft.Text(size=25, color=ft.Colors.GREEN)
+    success_text_remover = ft.Text("", size=20, color=ft.Colors.RED)
+    success_vendas_text = ft.Text(value="", size=25, color=ft.Colors.GREEN)
     success_salvar_text = ft.Text(size=20, color=ft.Colors.GREEN)
     nao_salva = ft.Text(size=20, color=ft.Colors.RED_700)
 
@@ -1398,7 +1540,7 @@ def main(page: ft.Page):
         ),
         padding=ft.padding.symmetric(horizontal=30, vertical=5),
 
-        margin=ft.margin.only(bottom=25),
+        margin=ft.margin.only(bottom=5),
         gradient=ft.LinearGradient(
             begin=ft.alignment.top_left,
             end=ft.alignment.bottom_right,
@@ -1583,6 +1725,9 @@ def main(page: ft.Page):
         border_radius=10
     )
 
+    # Mensagem de exclusão
+    success_delete_text = ft.Text("", size=20, color=ft.Colors.RED, weight=ft.FontWeight.BOLD)
+
     # Produtos cadastrados
     secao_produtos = ft.Container(
         content=ft.Column(
@@ -1592,12 +1737,11 @@ def main(page: ft.Page):
                                     weight=ft.FontWeight.BOLD),
                     padding=10
                 ),
+                success_delete_text,
                 ft.Divider(),
-                ft.Container(
-                    content=tabela_produtos,
-                    border=ft.border.all(1, ft.Colors.GREY_300),
-                    border_radius=5,
-                    padding=10,
+                ft.Column(
+                    [tabela_produtos],
+                    scroll=ft.ScrollMode.AUTO,
                     expand=True
                 )
             ],
@@ -1649,18 +1793,20 @@ def main(page: ft.Page):
     page.add(header)
     page.add(ft.Container(
         content=ft.Column([
-            success_vendas_text,
+            ft.Column([success_vendas_text, success_text_remover], spacing=0),
             ft.Row([
                 ft.Column([secao_carrinho, form_busca, Botao_pagina_cadastro], expand=2)
             ], expand=True)
         ]),
-        padding=20
+        padding=ft.padding.only(left=20, right=20, bottom=20, top=0)
     ))
 
     # Adiciona os modais ao final para garantir que o header fique no topo (índice 0)
     page.add(modal_checkout)
     page.add(modal_dados_cartao)
     page.add(modal_comprovante)
+    page.add(modal_produto)
+    page.add(modal_exclusao)
 
     # Inicialização
 

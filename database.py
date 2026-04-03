@@ -33,7 +33,7 @@ def setup_logging():
 setup_logging()
 
 # ==============================================================
-# CONFIGURAÇÃO DO BANCO DE DADOS (CORRIGIDA)
+# CONFIGURAÇÃO DO BANCO DE DADOS 
 # ==============================================================
 
 
