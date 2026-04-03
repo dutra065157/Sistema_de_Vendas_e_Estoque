@@ -12,11 +12,11 @@ O **Graça Presentes** é uma solução completa de Ponto de Venda (PDV) e contr
 <div align="center">
   <table>
     <tr>
-      <td align="center"><b>Fente App</b><br><img src="assets/frente.png" width="400" alt="Dashboard"></td>
+      <td align="center"><b>Frente App</b><br><img src="assets/frente.png" width="400" alt="Dashboard"></td>
       <td align="center"><b>Frente carrinho (PDV)</b><br><img src="assets/carrinho.png" width="400" alt="PDV"></td>
     </tr>
     <tr>
-      <td align="center"><b>Pagina cadastrar produto</b><br><img src="assets/cadastro.png" width="400" alt="Estoque"></td>
+      <td align="center"><b>Pagina cadastra produtos</b><br><img src="assets/cadastro.png" width="400" alt="Estoque"></td>
       <td align="center"><b>Relatorio de vendas</b><br><img src="assets/relatorio.png" width="400" alt="Comprovante"></td>
     </tr>
   </table>
