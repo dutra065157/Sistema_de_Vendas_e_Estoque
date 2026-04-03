@@ -12,12 +12,12 @@ O **Graça Presentes** é uma solução completa de Ponto de Venda (PDV) e contr
 <div align="center">
   <table>
     <tr>
-      <td align="center"><b>Dashboard Analítico</b><br><img src="assents/img1.png" width="400" alt="Dashboard"></td>
-      <td align="center"><b>Frente de Caixa (PDV)</b><br><img src="assets/img2.png" width="400" alt="PDV"></td>
+      <td align="center"><b>Dashboard Analítico</b><br><img src="assets/img1.png" width="400" alt="Dashboard"></td>
+      <td align="center"><b>Frente de Caixa (PDV)</b><br><img src="assets/img5.png" width="400" alt="PDV"></td>
     </tr>
     <tr>
       <td align="center"><b>Gestão de Inventário</b><br><img src="assets/img3.png" width="400" alt="Estoque"></td>
-      <td align="center"><b>Comprovantes & QR Code</b><br><img src="assets/img4.png" width="400" alt="Comprovante"></td>
+      <td align="center"><b>Comprovantes & QR Code</b><br><img src="assets/img6.png" width="400" alt="Comprovante"></td>
     </tr>
   </table>
 </div>
